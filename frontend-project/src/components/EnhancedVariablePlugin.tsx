@@ -14,6 +14,7 @@ import type { VariableItem } from '../types';
 
 interface EnhancedVariablePluginProps {
   variables: VariableItem[];
+  triggerChars?: string[];
 }
 
 interface CaretPosition {
@@ -220,24 +221,26 @@ function VariablePopup({ isOpen, variables, position, searchQuery, onSelect, onC
   );
 }
 
-export default function EnhancedVariablePlugin({ variables }: EnhancedVariablePluginProps) {
+export default function EnhancedVariablePlugin({ variables, triggerChars = ['/'] }: EnhancedVariablePluginProps) {
   const [editor] = useLexicalComposerContext();
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [popupPosition, setPopupPosition] = useState<CaretPosition | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [isTriggeredBySlash, setIsTriggeredBySlash] = useState(false);
+  const [isTriggeredByTriggerChar, setIsTriggeredByTriggerChar] = useState(false);
+  const [triggerChar, setTriggerChar] = useState<string>('');
 
   const closePopup = useCallback(() => {
     setIsPopupOpen(false);
     setPopupPosition(null);
     setSearchQuery('');
     setSelectedIndex(0);
-    setIsTriggeredBySlash(false);
+    setIsTriggeredByTriggerChar(false);
+    setTriggerChar('');
   }, []);
 
-  const openPopup = useCallback((triggeredBySlash = false) => {
-    console.log('openPopup called, triggeredBySlash:', triggeredBySlash);
+  const openPopup = useCallback((triggeredByChar = false, char = '') => {
+    console.log('openPopup called, triggeredByChar:', triggeredByChar, 'char:', char);
     
     // 使用 setTimeout 确保斜杠字符已插入
     setTimeout(() => {
@@ -249,31 +252,32 @@ export default function EnhancedVariablePlugin({ variables }: EnhancedVariablePl
         setIsPopupOpen(true);
         setSearchQuery('');
         setSelectedIndex(0);
-        setIsTriggeredBySlash(triggeredBySlash);
+        setIsTriggeredByTriggerChar(triggeredByChar);
+        setTriggerChar(char);
       } else {
         console.warn('Could not get caret position');
       }
-    }, triggeredBySlash ? 50 : 10); // 斜杠触发时延迟更长
+    }, triggeredByChar ? 50 : 10); // 触发字符时延迟更长
   }, [editor]);
 
   const insertVariable = useCallback((variable: VariableItem) => {
     editor.update(() => {
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {
-        // 如果是斜杠触发的，需要删除斜杠
-        if (isTriggeredBySlash) {
+        // 如果是触发字符触发的，需要删除触发字符
+        if (isTriggeredByTriggerChar) {
           const anchorNode = selection.anchor.getNode();
           if ($isTextNode(anchorNode)) {
             const text = anchorNode.getTextContent();
             const offset = selection.anchor.offset;
             
-            // 查找最近的斜杠
-            const slashIndex = text.lastIndexOf('/', offset);
-            if (slashIndex !== -1) {
-              // 选中从斜杠到当前位置的文本并删除
+            // 查找最近的触发字符
+            const triggerIndex = text.lastIndexOf(triggerChar, offset);
+            if (triggerIndex !== -1) {
+              // 选中从触发字符到当前位置的文本并删除
               selection.setTextNodeRange(
                 anchorNode,
-                slashIndex,
+                triggerIndex,
                 anchorNode,
                 offset
               );
@@ -293,7 +297,7 @@ export default function EnhancedVariablePlugin({ variables }: EnhancedVariablePl
     });
     
     closePopup();
-  }, [editor, isTriggeredBySlash, closePopup]);
+  }, [editor, isTriggeredByTriggerChar, triggerChar, closePopup]);
 
   const handleVariableHover = useCallback((index: number) => {
     console.log('Mouse hover on index:', index);
@@ -319,10 +323,10 @@ export default function EnhancedVariablePlugin({ variables }: EnhancedVariablePl
   // 键盘事件处理
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // 处理斜杠键
-      if (event.key === '/' && !isPopupOpen) {
+      // 处理触发字符
+      if (triggerChars.includes(event.key) && !isPopupOpen) {
         setTimeout(() => {
-          openPopup(true);
+          openPopup(true, event.key);
         }, 10);
         return false;
       }
@@ -384,7 +388,7 @@ export default function EnhancedVariablePlugin({ variables }: EnhancedVariablePl
 
   // 监听编辑器内容变化来更新搜索查询
   useEffect(() => {
-    if (!isPopupOpen || !isTriggeredBySlash) return;
+    if (!isPopupOpen || !isTriggeredByTriggerChar) return;
 
     const unregisterUpdate = editor.registerUpdateListener(({ editorState }) => {
       editorState.read(() => {
@@ -395,16 +399,16 @@ export default function EnhancedVariablePlugin({ variables }: EnhancedVariablePl
             const text = anchorNode.getTextContent();
             const offset = selection.anchor.offset;
             
-            // 查找最近的斜杠
-            const slashIndex = text.lastIndexOf('/', offset);
-            if (slashIndex !== -1) {
-              const query = text.slice(slashIndex + 1, offset);
+            // 查找最近的触发字符
+            const triggerIndex = text.lastIndexOf(triggerChar, offset);
+            if (triggerIndex !== -1) {
+              const query = text.slice(triggerIndex + 1, offset);
               if (query !== searchQuery) {
                 setSearchQuery(query);
                 setSelectedIndex(0);
               }
             } else if (searchQuery.length > 0) {
-              // 如果找不到斜杠但有搜索查询，清空搜索查询
+              // 如果找不到触发字符但有搜索查询，清空搜索查询
               setSearchQuery('');
               setSelectedIndex(0);
             }
@@ -414,7 +418,7 @@ export default function EnhancedVariablePlugin({ variables }: EnhancedVariablePl
     });
 
     return unregisterUpdate;
-  }, [editor, isPopupOpen, isTriggeredBySlash, searchQuery]);
+  }, [editor, isPopupOpen, isTriggeredByTriggerChar, triggerChar, searchQuery]);
 
   // 添加右击功能
   useEffect(() => {
@@ -431,7 +435,8 @@ export default function EnhancedVariablePlugin({ variables }: EnhancedVariablePl
       setIsPopupOpen(true);
       setSearchQuery('');
       setSelectedIndex(0);
-      setIsTriggeredBySlash(false);
+      setIsTriggeredByTriggerChar(false);
+      setTriggerChar('');
     };
 
     const editorElement = editor.getRootElement();

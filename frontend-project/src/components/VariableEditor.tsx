@@ -12,18 +12,21 @@ import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
+import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { VariableMentionNode } from './VariableMentionNode';
 import type { VariableItem } from '../types';
 import EnhancedVariablePlugin from './EnhancedVariablePlugin';
 import { createInitialEditorState } from '../utils/textParser';
-import { serializeEditorContent } from '../utils/contentSerializer';
+import { serializeEditorContent, serializeEditorContentAsLabels } from '../utils/contentSerializer';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 
 export interface VariableEditorProps {
   initialText?: string;
   variables: VariableItem[];
+  triggerChars?: string[];
   onChange?: (content: string) => void;
+  onPreviewChange?: (previewContent: string) => void;
   placeholder?: string;
   className?: string;
 }
@@ -76,7 +79,7 @@ function EditorInitializer({ initialText, variables, editorRef, isInitializedRef
 }
 
 const VariableEditor = forwardRef<VariableEditorRef, VariableEditorProps>(
-  ({ initialText = '', variables, onChange, placeholder = '输入文本，按 / 选择变量...', className = '' }, ref) => {
+  ({ initialText = '', variables, triggerChars = ['/'], onChange, onPreviewChange, placeholder = '输入文本，按 / 选择变量...', className = '' }, ref) => {
     const editorRef = useRef<LexicalEditor | null>(null);
     const isInitializedRef = useRef(false);
 
@@ -126,10 +129,16 @@ const VariableEditor = forwardRef<VariableEditorRef, VariableEditorProps>(
     }), []);
 
     const handleEditorChange = (editorState: EditorState) => {
-      if (onChange) {
-        editorRef.current?.read(() => {
-          const content = $getRoot().getTextContent();
-          onChange(content);
+      if (onChange || onPreviewChange) {
+        editorState.read(() => {
+          if (onChange) {
+            const content = serializeEditorContent();
+            onChange(content);
+          }
+          if (onPreviewChange) {
+            const previewContent = serializeEditorContentAsLabels();
+            onPreviewChange(previewContent);
+          }
         });
       }
     };
@@ -153,7 +162,8 @@ const VariableEditor = forwardRef<VariableEditorRef, VariableEditorProps>(
             ErrorBoundary={LexicalErrorBoundary}
           />
           <HistoryPlugin />
-          <EnhancedVariablePlugin variables={variables} />
+          <OnChangePlugin onChange={handleEditorChange} />
+          <EnhancedVariablePlugin variables={variables} triggerChars={triggerChars} />
         </LexicalComposer>
       </div>
     );

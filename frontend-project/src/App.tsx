@@ -1,10 +1,15 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import VariableEditor, { type VariableEditorRef } from './components/VariableEditor'
+import PreviewEditor, { type PreviewEditorRef } from './components/PreviewEditor'
 import type { VariableItem } from './types'
 
 function App() {
   const editorRef = useRef<VariableEditorRef>(null);
+  const previewRef = useRef<PreviewEditorRef>(null);
   const [content, setContent] = useState<string>('');
+  const [previewContent, setPreviewContent] = useState<string>('');
+  const isUpdatingFromPreview = useRef(false);
+  const updateTimer = useRef<NodeJS.Timeout | null>(null);
 
   // 测试用的变量数据
   const variables: VariableItem[] = [
@@ -20,6 +25,68 @@ function App() {
 
   // 测试用的初始文本
   const initialText = '欢迎您，${userName}！您的邮箱是 ${userEmail}。今天是 ${currentDate}，您在 ${companyName} 的 ${department} 部门工作。';
+
+  // 触发字符配置
+  const triggerChars = ['/', '$'];
+
+  // 初始化预览内容
+  useEffect(() => {
+    // 下方编辑器显示变量格式，所以直接使用初始文本
+    setPreviewContent(initialText);
+  }, []);
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (updateTimer.current) {
+        clearTimeout(updateTimer.current);
+      }
+    };
+  }, []);
+
+  // 处理主编辑器内容变化（序列化格式，用于下方预览编辑器显示）
+  const handleMainEditorChange = (newContent: string) => {
+    // 只有不是从预览编辑器触发的更新才设置预览内容
+    if (!isUpdatingFromPreview.current) {
+      setPreviewContent(newContent);
+    }
+  };
+
+  // 处理主编辑器预览内容变化（人类可读格式，暂时不使用）
+  const handleMainEditorPreviewChange = (previewContent: string) => {
+    // 这个回调现在不使用，因为我们要在下方显示变量格式
+  };
+
+  // 处理预览编辑器内容变化（实时同步）
+  const handlePreviewChange = (newContent: string) => {
+    // 清除之前的定时器
+    if (updateTimer.current) {
+      clearTimeout(updateTimer.current);
+    }
+    
+    // 标记正在从预览编辑器更新
+    isUpdatingFromPreview.current = true;
+    
+    // 使用防抖，减少更新频率
+    updateTimer.current = setTimeout(() => {
+      if (editorRef.current) {
+        editorRef.current.setContent(newContent);
+      }
+      
+      // 延迟重置标记
+      setTimeout(() => {
+        isUpdatingFromPreview.current = false;
+      }, 50);
+    }, 300); // 300ms防抖，在输入体验和实时性之间找平衡
+  };
+
+  // 处理预览编辑器失去焦点时的同步（备份方案）
+  const handlePreviewBlur = (newContent: string) => {
+    // 如果实时同步有问题，这里作为备份
+    if (!isUpdatingFromPreview.current) {
+      handlePreviewChange(newContent);
+    }
+  };
 
   const handleGetContent = () => {
     if (editorRef.current) {
@@ -64,9 +131,9 @@ function App() {
           <section className="bg-blue-50 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-blue-800 mb-3">使用说明</h3>
             <ul className="text-blue-700 space-y-1 text-sm">
-              <li>• 在编辑器中输入文本，按 <kbd className="bg-blue-200 px-1 rounded">/</kbd> 键可以弹出变量选择列表</li>
+              <li>• 在编辑器中输入文本，按 <kbd className="bg-blue-200 px-1 rounded">/</kbd> 或 <kbd className="bg-blue-200 px-1 rounded">$</kbd> 键可以弹出变量选择列表</li>
               <li>• 使用 <kbd className="bg-blue-200 px-1 rounded">↑</kbd> <kbd className="bg-blue-200 px-1 rounded">↓</kbd> 键导航，<kbd className="bg-blue-200 px-1 rounded">Enter</kbd> 键选择</li>
-              <li>• 支持搜索过滤：按 <kbd className="bg-blue-200 px-1 rounded">/</kbd> 后继续输入可筛选变量</li>
+              <li>• 支持搜索过滤：按触发字符后继续输入可筛选变量</li>
               <li>• 初始文本中的 <code className="bg-blue-200 px-1 rounded">{'${key}'}</code> 会自动转换为对应的变量标签</li>
             </ul>
           </section>
@@ -78,8 +145,10 @@ function App() {
               ref={editorRef}
               initialText={initialText}
               variables={variables}
+              triggerChars={triggerChars}
+              onChange={handleMainEditorChange}
               className="min-h-40"
-              placeholder="输入文本，按 / 选择变量..."
+              placeholder="输入文本，按 / 或 $ 选择变量..."
             />
             
             <div className="mt-4 flex gap-2 flex-wrap">
@@ -108,6 +177,23 @@ function App() {
                 清空内容
               </button>
             </div>
+          </section>
+
+          {/* 变量格式编辑器 */}
+          <section className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-semibold mb-4">变量格式编辑器（双向同步）</h2>
+            <p className="text-sm text-gray-600 mb-3">
+              显示上方编辑器的变量格式（${'${key}'}），也可以直接编辑变量格式内容，停止输入300ms后会同步到上方编辑器
+            </p>
+            <PreviewEditor
+              ref={previewRef}
+              variables={variables}
+              value={previewContent}
+              onChange={handlePreviewChange}
+              onBlur={handlePreviewBlur}
+              className="min-h-40"
+              placeholder="这里显示变量格式内容..."
+            />
           </section>
 
           {/* 可用变量列表 */}

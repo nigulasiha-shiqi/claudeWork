@@ -74,6 +74,14 @@ export function getPlainTextContent(): string {
   return root.getTextContent();
 }
 
+// 将编辑器内容序列化为人类可读格式（变量显示为标签）
+export function serializeEditorContentAsLabels(): string {
+  const root = $getRoot();
+  // 直接使用 Lexical 的内置方法获取文本内容
+  // 因为 VariableMentionNode 的 getTextContent() 已经返回标签文本了
+  return root.getTextContent();
+}
+
 // 统计编辑器内容信息
 export function getContentStats() {
   const root = $getRoot();
