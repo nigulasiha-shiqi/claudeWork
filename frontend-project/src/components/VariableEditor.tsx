@@ -5,6 +5,7 @@ import {
   $createTextNode,
   $getSelection,
   $isRangeSelection,
+  $setSelection,
   type EditorState,
   type LexicalEditor
 } from 'lexical';
@@ -17,7 +18,7 @@ import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { VariableMentionNode } from './VariableMentionNode';
 import type { VariableItem } from '../types';
 import EnhancedVariablePlugin from './EnhancedVariablePlugin';
-import { createInitialEditorState } from '../utils/textParser';
+import { createInitialEditorState, parseInitialText } from '../utils/textParser';
 import { serializeEditorContent, serializeEditorContentAsLabels } from '../utils/contentSerializer';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 
@@ -108,7 +109,86 @@ const VariableEditor = forwardRef<VariableEditorRef, VariableEditorProps>(
       setContent: (content: string) => {
         if (!editorRef.current) return;
         
-        createInitialEditorState(editorRef.current, content, variables);
+        // 获取当前的序列化内容
+        let currentContent = '';
+        editorRef.current.read(() => {
+          currentContent = serializeEditorContent();
+        });
+        
+        // 如果内容相同，不进行更新
+        if (currentContent === content) {
+          return;
+        }
+        
+        // 保存当前光标位置和焦点状态
+        let savedSelection: any = null;
+        let hasFocus = false;
+        
+        editorRef.current.read(() => {
+          const selection = $getSelection();
+          if ($isRangeSelection(selection)) {
+            // 保存选区信息
+            savedSelection = {
+              anchorKey: selection.anchor.key,
+              anchorOffset: selection.anchor.offset,
+              focusKey: selection.focus.key,
+              focusOffset: selection.focus.offset,
+            };
+          }
+        });
+        
+        // 检查编辑器是否有焦点
+        const editorElement = editorRef.current.getRootElement();
+        if (editorElement) {
+          hasFocus = editorElement.contains(document.activeElement);
+        }
+        
+        // 更新内容
+        editorRef.current.update(() => {
+          parseInitialText(content, variables);
+          
+          // 如果之前有焦点，尝试恢复光标位置
+          if (hasFocus && savedSelection) {
+            try {
+              const root = $getRoot();
+              const anchorNode = root.getNodeByKey(savedSelection.anchorKey);
+              const focusNode = root.getNodeByKey(savedSelection.focusKey);
+              
+              if (anchorNode && focusNode) {
+                const selection = $getSelection();
+                if ($isRangeSelection(selection)) {
+                  selection.anchor.set(savedSelection.anchorKey, savedSelection.anchorOffset, 'text');
+                  selection.focus.set(savedSelection.focusKey, savedSelection.focusOffset, 'text');
+                }
+              } else {
+                // 如果无法恢复到原来的位置，将光标放到内容末尾
+                const lastParagraph = root.getLastChild();
+                if (lastParagraph) {
+                  const lastChild = lastParagraph.getLastChild();
+                  if (lastChild) {
+                    lastChild.selectEnd();
+                  } else {
+                    lastParagraph.selectEnd();
+                  }
+                }
+              }
+            } catch (error) {
+              // 如果恢复光标位置失败，将光标放到内容末尾
+              const root = $getRoot();
+              const lastParagraph = root.getLastChild();
+              if (lastParagraph) {
+                lastParagraph.selectEnd();
+              }
+            }
+          }
+        });
+        
+        // 如果之前有焦点，恢复焦点
+        if (hasFocus && editorElement) {
+          setTimeout(() => {
+            editorElement.focus();
+          }, 0);
+        }
       },
 
       getEditor: () => editorRef.current,

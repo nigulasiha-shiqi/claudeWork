@@ -4,6 +4,8 @@ import {
   $getSelection,
   $isRangeSelection,
   $createTextNode,
+  $isTextNode,
+  TextNode,
   KEY_DOWN_COMMAND,
   COMMAND_PRIORITY_LOW,
   KEY_ARROW_DOWN_COMMAND,
@@ -218,30 +220,31 @@ export default function VariablePlugin({ variables }: VariablePluginProps) {
   useEffect(() => {
     if (!isPopupOpen) return;
 
-    const unregisterNodeTransform = editor.registerNodeTransform(
-      (node) => node,
-      (node) => {
+    const unregisterUpdate = editor.registerUpdateListener(({ editorState }) => {
+      editorState.read(() => {
         const selection = $getSelection();
         if ($isRangeSelection(selection)) {
           const anchorNode = selection.anchor.getNode();
-          const text = anchorNode.getTextContent();
-          const offset = selection.anchor.offset;
-          
-          // 查找最近的 / 字符
-          const slashIndex = text.lastIndexOf('/', offset);
-          if (slashIndex !== -1) {
-            const query = text.slice(slashIndex + 1, offset);
-            if (query !== searchQuery) {
-              setSearchQuery(query);
-              setSelectedIndex(0);
+          if ($isTextNode(anchorNode)) {
+            const text = anchorNode.getTextContent();
+            const offset = selection.anchor.offset;
+            
+            // 查找最近的 / 字符
+            const slashIndex = text.lastIndexOf('/', offset);
+            if (slashIndex !== -1) {
+              const query = text.slice(slashIndex + 1, offset);
+              if (query !== searchQuery) {
+                setSearchQuery(query);
+                setSelectedIndex(0);
+              }
             }
           }
         }
-      }
-    );
+      });
+    });
 
     return () => {
-      unregisterNodeTransform();
+      unregisterUpdate();
     };
   }, [editor, isPopupOpen, searchQuery]);
 
