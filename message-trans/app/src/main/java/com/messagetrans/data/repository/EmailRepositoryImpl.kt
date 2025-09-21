@@ -14,6 +14,9 @@ class EmailRepositoryImpl(private val emailConfigDao: EmailConfigDao) : EmailRep
     override suspend fun getEmailConfigById(id: String): EmailConfig? =
         emailConfigDao.getEmailConfigById(id)
 
+    override suspend fun getEmailConfigCount(): Int =
+        emailConfigDao.getEmailConfigCount()
+
     override suspend fun insertEmailConfig(emailConfig: EmailConfig) =
         emailConfigDao.insertEmailConfig(emailConfig)
 

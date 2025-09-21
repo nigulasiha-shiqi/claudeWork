@@ -7,6 +7,7 @@ interface EmailRepository {
     fun getAllEmailConfigs(): Flow<List<EmailConfig>>
     suspend fun getEnabledEmailConfigs(): List<EmailConfig>
     suspend fun getEmailConfigById(id: String): EmailConfig?
+    suspend fun getEmailConfigCount(): Int
     suspend fun insertEmailConfig(emailConfig: EmailConfig)
     suspend fun updateEmailConfig(emailConfig: EmailConfig)
     suspend fun deleteEmailConfig(emailConfig: EmailConfig)

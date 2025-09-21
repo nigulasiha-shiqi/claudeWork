@@ -24,21 +24,19 @@ object SmsUtils {
     
     private const val TAG = "SmsUtils"
     
-    suspend fun getSimInfoFromIntent(context: Context, intent: Intent): SimInfo {
-        return withContext(Dispatchers.IO) {
-            try {
-                val subscriptionId = intent.getIntExtra("subscription", -1)
-                val slotIndex = intent.getIntExtra("slot", 0)
-                
-                if (subscriptionId != -1) {
-                    getSimInfoBySubscriptionId(context, subscriptionId)
-                } else {
-                    getSimInfoBySlotIndex(context, slotIndex)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error getting SIM info from intent", e)
-                SimInfo(0, "unknown", "Unknown", null)
+    fun getSimInfoFromIntent(context: Context, intent: Intent): SimInfo {
+        return try {
+            val subscriptionId = intent.getIntExtra("subscription", -1)
+            val slotIndex = intent.getIntExtra("slot", 0)
+            
+            if (subscriptionId != -1) {
+                getSimInfoBySubscriptionId(context, subscriptionId)
+            } else {
+                getSimInfoBySlotIndex(context, slotIndex)
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting SIM info from intent", e)
+            SimInfo(0, "unknown", "Unknown", null)
         }
     }
     
@@ -120,11 +118,17 @@ object SmsUtils {
                 val database = MessageTransApplication.getInstance().database
                 val smsLogDao = database.smsLogDao()
                 
-                // 这里需要添加一个更新方法到DAO
-                // 暂时跳过，在实际实现时需要添加
+                val emailsSentJson = com.google.gson.Gson().toJson(emailsSent)
+                val isForwarded = emailsSent.isNotEmpty()
+                
+                smsLogDao.updateEmailStatus(smsLogId, isForwarded, emailsSentJson, errorMessage)
+                
+                RuntimeLogger.logInfo(TAG, "短信日志邮件状态已更新", 
+                    "ID: $smsLogId, 转发成功: $isForwarded, 邮箱数量: ${emailsSent.size}")
                 Log.d(TAG, "SMS log email status updated: $smsLogId")
                 
             } catch (e: Exception) {
+                RuntimeLogger.logError(TAG, "更新短信日志邮件状态失败", e, "ID: $smsLogId")
                 Log.e(TAG, "Error updating SMS log email status", e)
             }
         }

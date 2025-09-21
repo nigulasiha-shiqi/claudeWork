@@ -2,6 +2,7 @@ package com.messagetrans.service.email
 
 import android.util.Log
 import com.messagetrans.data.database.entities.EmailConfig
+import com.messagetrans.utils.RuntimeLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.*
@@ -25,6 +26,7 @@ object EmailService {
     ): EmailResult = withContext(Dispatchers.IO) {
         
         try {
+            RuntimeLogger.logEmailSending(emailConfig.emailAddress, "主题: $subject")
             Log.d(TAG, "Sending email via ${emailConfig.emailAddress}")
             
             val props = Properties().apply {
@@ -62,21 +64,25 @@ object EmailService {
             
             Transport.send(message)
             
+            RuntimeLogger.logEmailSuccess(emailConfig.emailAddress, "主题: $subject")
             Log.d(TAG, "Email sent successfully via ${emailConfig.emailAddress}")
             EmailResult(success = true)
             
         } catch (e: AuthenticationFailedException) {
             val error = "邮箱认证失败: ${e.message}"
+            RuntimeLogger.logEmailFailure(emailConfig.emailAddress, error, e)
             Log.e(TAG, error, e)
             EmailResult(success = false, errorMessage = error)
             
         } catch (e: MessagingException) {
             val error = "邮件发送失败: ${e.message}"
+            RuntimeLogger.logEmailFailure(emailConfig.emailAddress, error, e)
             Log.e(TAG, error, e)
             EmailResult(success = false, errorMessage = error)
             
         } catch (e: Exception) {
             val error = "未知错误: ${e.message}"
+            RuntimeLogger.logEmailFailure(emailConfig.emailAddress, error, e)
             Log.e(TAG, error, e)
             EmailResult(success = false, errorMessage = error)
         }

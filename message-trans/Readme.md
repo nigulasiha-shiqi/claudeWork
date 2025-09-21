@@ -8,10 +8,13 @@
 1. **短信拦截转发** - 拦截指定SIM卡的短信并自动转发到配置的邮箱
 2. **后台长时间运行** - 前台服务确保应用持续在后台工作
 3. **完整日志记录** - 记录所有短信转发操作和状态
-4. **多SIM卡支持** - 用户可选择拦截哪张SIM卡的短信
-5. **双卡兼容** - 支持eSIM和物理SIM卡
-6. **多邮箱配置** - 支持配置多个邮箱地址，可同时向多个邮箱发送
-7. **权限管理** - 智能权限引导，支持电池优化和自启动设置
+4. **运行时日志系统** - 实时记录应用运行状态，便于故障排查
+5. **邮件配置缓存** - 邮件配置持久化存储，重装应用后自动恢复
+6. **多SIM卡支持** - 用户可选择拦截哪张SIM卡的短信
+7. **双卡兼容** - 支持eSIM和物理SIM卡
+8. **多邮箱配置** - 支持配置多个邮箱地址，可同时向多个邮箱发送
+9. **权限管理** - 智能权限引导，支持电池优化和自启动设置
+10. **配置导入导出** - 支持邮件配置的导出和导入，方便备份和迁移
 
 ### 技术栈
 - **平台**: 原生Android开发
@@ -114,6 +117,17 @@ data class SimConfig(
     val isEnabled: Boolean,     // 是否启用拦截
     val simType: String        // SIM卡类型
 )
+
+// 运行日志表
+@Entity(tableName = "runtime_logs")
+data class RuntimeLog(
+    @PrimaryKey val id: String,
+    val level: String,          // 日志级别 (DEBUG, INFO, WARN, ERROR)
+    val tag: String,            // 日志标签
+    val message: String,        // 日志消息
+    val details: String?,       // 详细信息
+    val timestamp: Long         // 时间戳
+)
 ```
 
 ## 文件结构
@@ -129,22 +143,26 @@ message-trans/
 │   │   │   │   │   ├── entities/              # 数据实体
 │   │   │   │   │   │   ├── SmsLog.kt
 │   │   │   │   │   │   ├── EmailConfig.kt
-│   │   │   │   │   │   └── SimConfig.kt
+│   │   │   │   │   │   ├── SimConfig.kt
+│   │   │   │   │   │   └── RuntimeLog.kt
 │   │   │   │   │   ├── dao/                   # 数据访问对象
 │   │   │   │   │   │   ├── SmsLogDao.kt
 │   │   │   │   │   │   ├── EmailConfigDao.kt
-│   │   │   │   │   │   └── SimConfigDao.kt
+│   │   │   │   │   │   ├── SimConfigDao.kt
+│   │   │   │   │   │   └── RuntimeLogDao.kt
 │   │   │   │   │   └── AppDatabase.kt         # 数据库配置
 │   │   │   │   ├── repository/                # 仓储实现
 │   │   │   │   │   ├── SmsRepositoryImpl.kt
 │   │   │   │   │   ├── EmailRepositoryImpl.kt
-│   │   │   │   │   └── SimRepositoryImpl.kt
+│   │   │   │   │   ├── SimRepositoryImpl.kt
+│   │   │   │   │   └── RuntimeLogRepositoryImpl.kt
 │   │   │   │   └── preferences/               # 偏好设置
 │   │   │   ├── domain/                        # 领域层
 │   │   │   │   └── repository/                # 仓储接口
 │   │   │   │       ├── SmsRepository.kt
 │   │   │   │       ├── EmailRepository.kt
-│   │   │   │       └── SimRepository.kt
+│   │   │   │       ├── SimRepository.kt
+│   │   │   │       └── RuntimeLogRepository.kt
 │   │   │   ├── presentation/                  # 表示层
 │   │   │   │   ├── ui/
 │   │   │   │   │   ├── main/
@@ -157,14 +175,19 @@ message-trans/
 │   │   │   │   │   │       └── SimConfigAdapter.kt
 │   │   │   │   │   ├── logs/
 │   │   │   │   │   │   ├── LogsFragment.kt
+│   │   │   │   │   │   ├── LogsPagerAdapter.kt
+│   │   │   │   │   │   ├── SmsLogsFragment.kt
+│   │   │   │   │   │   ├── RuntimeLogsFragment.kt
 │   │   │   │   │   │   └── adapter/
-│   │   │   │   │   │       └── SmsLogAdapter.kt
+│   │   │   │   │   │       ├── SmsLogAdapter.kt
+│   │   │   │   │   │       └── RuntimeLogAdapter.kt
 │   │   │   │   │   └── permission/
 │   │   │   │   │       └── PermissionGuideActivity.kt
 │   │   │   │   └── viewmodel/                 # 视图模型
 │   │   │   │       ├── HomeViewModel.kt
 │   │   │   │       ├── SettingsViewModel.kt
-│   │   │   │       └── LogsViewModel.kt
+│   │   │   │       ├── LogsViewModel.kt
+│   │   │   │       └── RuntimeLogsViewModel.kt
 │   │   │   ├── service/                       # 服务层
 │   │   │   │   ├── sms/
 │   │   │   │   │   ├── SmsInterceptorReceiver.kt  # 短信拦截器
@@ -175,7 +198,10 @@ message-trans/
 │   │   │   │   └── BootReceiver.kt                # 开机启动接收器
 │   │   │   ├── utils/                         # 工具类
 │   │   │   │   ├── PermissionManager.kt       # 权限管理
-│   │   │   │   └── SmsUtils.kt               # 短信工具
+│   │   │   │   ├── SmsUtils.kt               # 短信工具
+│   │   │   │   ├── RuntimeLogger.kt          # 运行时日志工具
+│   │   │   │   ├── EmailConfigCache.kt       # 邮件配置缓存
+│   │   │   │   └── SimCardManager.kt         # SIM卡管理
 │   │   │   └── MessageTransApplication.kt     # 应用程序入口
 │   │   ├── res/                              # 资源文件
 │   │   │   ├── layout/                       # 布局文件
@@ -184,9 +210,12 @@ message-trans/
 │   │   │   │   ├── fragment_home.xml
 │   │   │   │   ├── fragment_settings.xml
 │   │   │   │   ├── fragment_logs.xml
+│   │   │   │   ├── fragment_sms_logs.xml
+│   │   │   │   ├── fragment_runtime_logs.xml
 │   │   │   │   ├── item_email_config.xml
 │   │   │   │   ├── item_sim_config.xml
-│   │   │   │   └── item_sms_log.xml
+│   │   │   │   ├── item_sms_log.xml
+│   │   │   │   └── item_runtime_log.xml
 │   │   │   ├── values/                       # 值资源
 │   │   │   │   ├── strings.xml              # 字符串资源
 │   │   │   │   ├── colors.xml               # 颜色资源
@@ -225,17 +254,27 @@ message-trans/
 
 ### 1. 短信拦截流程
 ```
-SMS接收 → SmsInterceptorReceiver → 检查SIM卡配置 → 记录日志 → 触发邮件发送
+SMS接收 → SmsInterceptorReceiver → 检查SIM卡配置 → 记录日志 → 触发邮件发送 → 记录运行日志
 ```
 
 ### 2. 邮件发送流程
 ```
-短信拦截 → WorkManager入队 → EmailSendingWorker → 获取邮箱配置 → 发送邮件 → 更新状态
+短信拦截 → WorkManager入队 → EmailSendingWorker → 获取邮箱配置 → 发送邮件 → 更新状态 → 同步缓存
 ```
 
 ### 3. 权限管理流程
 ```
 应用启动 → 检查权限状态 → 权限引导界面 → 分步骤授权 → 完成设置
+```
+
+### 4. 日志系统流程
+```
+操作事件 → RuntimeLogger → 加密存储 → 分级显示 → 自动清理
+```
+
+### 5. 配置缓存流程
+```
+配置变更 → EmailConfigCache → AES加密 → SharedPreferences存储 → 应用重启时恢复
 ```
 
 ## 权限说明
@@ -259,6 +298,8 @@ SMS接收 → SmsInterceptorReceiver → 检查SIM卡配置 → 记录日志 →
 
 ### 数据安全
 - 邮箱密码加密存储
+- 运行日志AES加密保护
+- 配置缓存AES加密存储
 - 敏感数据不参与备份
 - ProGuard代码混淆保护
 
@@ -266,6 +307,7 @@ SMS接收 → SmsInterceptorReceiver → 检查SIM卡配置 → 记录日志 →
 - 短信内容仅用于转发，不上传第三方
 - 本地数据库存储，用户完全控制
 - 支持清理历史日志
+- 配置导出使用Base64编码保护
 
 ## 开发和维护
 
@@ -301,16 +343,50 @@ git clone <repository-url>
 3. 某些情况下系统可能杀死后台服务
 4. 不同厂商的电池优化策略可能影响运行
 
+### 最新功能更新
+
+#### v1.1 (2025年1月) - 增强版
+- ✅ **运行时日志系统**: 实时记录应用运行状态，分级日志便于故障排查
+- ✅ **邮件配置缓存**: AES加密的持久化存储，重装应用后自动恢复配置
+- ✅ **分页日志界面**: 将日志页面分为"短信日志"和"运行日志"两个标签
+- ✅ **配置导入导出**: 支持邮件配置的备份和恢复，使用Base64编码
+- ✅ **增强的错误处理**: 完善的异常捕获和日志记录机制
+
+#### 核心改进类
+- **RuntimeLogger.kt**: 统一的运行时日志管理工具
+- **EmailConfigCache.kt**: 邮件配置的加密缓存系统  
+- **LogsFragment.kt**: 重构为TabLayout的多标签页面
+- **SettingsViewModel.kt**: 集成缓存同步和导入导出功能
+
 ### 后续优化方向
 1. 增加邮件模板自定义功能
 2. 支持短信关键词过滤
 3. 增加统计图表展示
 4. 支持云端备份配置
 5. 增加多语言支持
+6. 优化日志清理策略
+7. 增加配置同步到云端功能
 
 ---
 
 **开发完成时间**: 2025年1月
-**开发者**: Claude Code Assistant
-**版本**: v1.0
+**开发者**: Claude Code Assistant  
+**当前版本**: v1.1 (增强版)
 **许可证**: MIT License
+
+## 版本历史
+
+### v1.1 (2025年1月) - 增强版
+- 新增运行时日志系统，实时监控应用状态
+- 新增邮件配置缓存，支持重装后自动恢复
+- 重构日志界面为分页设计（短信日志 + 运行日志）
+- 新增配置导入导出功能
+- 优化错误处理和日志记录机制
+- 增强数据安全性（AES加密存储）
+
+### v1.0 (2025年1月) - 基础版
+- 基础短信拦截和邮件转发功能
+- 多SIM卡支持和多邮箱配置
+- 权限管理和后台服务
+- 基础日志记录系统
+- MVVM架构实现

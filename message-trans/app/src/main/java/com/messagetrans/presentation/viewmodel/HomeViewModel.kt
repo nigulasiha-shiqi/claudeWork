@@ -10,8 +10,13 @@ import com.messagetrans.data.repository.SmsRepositoryImpl
 import com.messagetrans.service.sms.SmsMonitorService
 import com.messagetrans.utils.PermissionManager
 import kotlinx.coroutines.launch
+import android.util.Log
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
+    
+    companion object {
+        private const val TAG = "HomeViewModel"
+    }
     
     private val smsRepository = SmsRepositoryImpl(
         (application as MessageTransApplication).database.smsLogDao()
@@ -59,22 +64,33 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun toggleService() {
+        Log.d(TAG, "toggleService called")
         val context = getApplication<Application>()
-        val hasPermissions = PermissionManager.checkAllPermissions(context).hasBasicPermissions
+        val permissionStatus = PermissionManager.checkAllPermissions(context)
         
-        if (!hasPermissions) {
+        Log.d(TAG, "Permission status: $permissionStatus")
+        
+        if (!permissionStatus.hasBasicPermissions) {
+            Log.w(TAG, "Missing basic permissions: ${permissionStatus.missingPermissions}")
             _permissionStatus.value = false
             return
         }
         
         val isCurrentlyRunning = _serviceStatus.value ?: false
+        Log.d(TAG, "Current service status: $isCurrentlyRunning")
         
-        if (isCurrentlyRunning) {
-            SmsMonitorService.stop(context)
-            _serviceStatus.value = false
-        } else {
-            SmsMonitorService.start(context)
-            _serviceStatus.value = true
+        try {
+            if (isCurrentlyRunning) {
+                Log.d(TAG, "Stopping SMS service")
+                SmsMonitorService.stop(context)
+                _serviceStatus.value = false
+            } else {
+                Log.d(TAG, "Starting SMS service")
+                SmsMonitorService.start(context)
+                _serviceStatus.value = true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error toggling service", e)
         }
     }
     
@@ -84,8 +100,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     private fun isServiceRunning(): Boolean {
-        // 这里可以实现检查服务是否正在运行的逻辑
-        // 简化实现，实际应用中可以通过ActivityManager检查
-        return false
+        // 简化实现，通过静态状态检查
+        return SmsMonitorService.isRunning()
     }
 }

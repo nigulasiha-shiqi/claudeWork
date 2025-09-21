@@ -2,6 +2,8 @@ package com.messagetrans
 
 import android.app.Application
 import com.messagetrans.data.database.AppDatabase
+import com.messagetrans.utils.EmailConfigCache
+import com.messagetrans.utils.RuntimeLogger
 
 class MessageTransApplication : Application() {
     val database by lazy { AppDatabase.getDatabase(this) }
@@ -9,6 +11,8 @@ class MessageTransApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        RuntimeLogger.init(this)
+        EmailConfigCache.init(this)
     }
 
     companion object {

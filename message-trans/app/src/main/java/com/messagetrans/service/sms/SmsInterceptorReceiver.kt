@@ -11,6 +11,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.messagetrans.data.database.entities.SmsLog
+import com.messagetrans.utils.RuntimeLogger
 import com.messagetrans.utils.SmsUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +49,7 @@ class SmsInterceptorReceiver : BroadcastReceiver() {
             // 获取SIM卡信息
             val simInfo = SmsUtils.getSimInfoFromIntent(context, intent)
             
+            RuntimeLogger.logSmsReceived(phoneNumber, messageBody, simInfo.slotIndex)
             Log.d(TAG, "Processing SMS: from=$phoneNumber, body=$messageBody, sim=${simInfo.slotIndex}")
             
             // 检查是否需要拦截这个SIM卡的短信

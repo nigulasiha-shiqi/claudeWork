@@ -15,6 +15,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.messagetrans.R
 import com.messagetrans.presentation.ui.main.MainActivity
+import com.messagetrans.utils.RuntimeLogger
 
 class SmsMonitorService : Service() {
     
@@ -22,6 +23,9 @@ class SmsMonitorService : Service() {
         private const val TAG = "SmsMonitorService"
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "SMS_MONITOR_CHANNEL"
+        
+        @Volatile
+        private var isServiceRunning = false
         
         fun start(context: Context) {
             val intent = Intent(context, SmsMonitorService::class.java)
@@ -36,6 +40,8 @@ class SmsMonitorService : Service() {
             val intent = Intent(context, SmsMonitorService::class.java)
             context.stopService(intent)
         }
+        
+        fun isRunning(): Boolean = isServiceRunning
     }
     
     private lateinit var smsReceiver: SmsInterceptorReceiver
@@ -51,7 +57,9 @@ class SmsMonitorService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "SMS Monitor Service started")
+        RuntimeLogger.logServiceStart()
         
+        isServiceRunning = true
         startForeground(NOTIFICATION_ID, createNotification())
         registerSmsReceiver()
         
@@ -61,7 +69,9 @@ class SmsMonitorService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "SMS Monitor Service destroyed")
+        RuntimeLogger.logServiceStop()
         
+        isServiceRunning = false
         unregisterSmsReceiver()
     }
 

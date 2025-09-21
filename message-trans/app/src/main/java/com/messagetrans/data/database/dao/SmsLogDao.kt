@@ -29,4 +29,7 @@ interface SmsLogDao {
 
     @Query("SELECT COUNT(*) FROM sms_logs WHERE isForwarded = 1")
     suspend fun getForwardedCount(): Int
+
+    @Query("UPDATE sms_logs SET isForwarded = :isForwarded, emailsSent = :emailsSent, errorMessage = :errorMessage WHERE id = :smsLogId")
+    suspend fun updateEmailStatus(smsLogId: String, isForwarded: Boolean, emailsSent: String, errorMessage: String?)
 }

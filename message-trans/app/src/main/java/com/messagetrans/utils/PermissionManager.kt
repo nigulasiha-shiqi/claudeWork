@@ -28,11 +28,19 @@ object PermissionManager {
     private val BASIC_PERMISSIONS = arrayOf(
         Manifest.permission.READ_SMS,
         Manifest.permission.RECEIVE_SMS,
+        Manifest.permission.READ_PHONE_STATE,
         Manifest.permission.INTERNET,
         Manifest.permission.ACCESS_NETWORK_STATE,
         Manifest.permission.FOREGROUND_SERVICE,
         Manifest.permission.RECEIVE_BOOT_COMPLETED
     )
+    
+    // Android 10+ 电话号码权限
+    private val PHONE_NUMBER_PERMISSION = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        arrayOf(Manifest.permission.READ_PHONE_NUMBERS)
+    } else {
+        emptyArray()
+    }
     
     // Android 13+ 通知权限
     private val NOTIFICATION_PERMISSION = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -76,7 +84,7 @@ object PermissionManager {
     }
     
     fun requestBasicPermissions(activity: Activity, requestCode: Int) {
-        val allPermissions = BASIC_PERMISSIONS + NOTIFICATION_PERMISSION
+        val allPermissions = BASIC_PERMISSIONS + NOTIFICATION_PERMISSION + PHONE_NUMBER_PERMISSION
         val missingPermissions = allPermissions.filter { 
             ContextCompat.checkSelfPermission(activity, it) != PackageManager.PERMISSION_GRANTED 
         }

@@ -15,6 +15,9 @@ interface SimConfigDao {
     @Query("SELECT * FROM sim_configs WHERE slotIndex = :slotIndex")
     suspend fun getSimConfigBySlot(slotIndex: Int): SimConfig?
 
+    @Query("SELECT COUNT(*) FROM sim_configs")
+    suspend fun getSimConfigCount(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSimConfig(simConfig: SimConfig)
 

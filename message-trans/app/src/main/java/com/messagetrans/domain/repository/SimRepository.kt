@@ -7,6 +7,7 @@ interface SimRepository {
     fun getAllSimConfigs(): Flow<List<SimConfig>>
     suspend fun getEnabledSimConfigs(): List<SimConfig>
     suspend fun getSimConfigBySlot(slotIndex: Int): SimConfig?
+    suspend fun getSimConfigCount(): Int
     suspend fun insertSimConfig(simConfig: SimConfig)
     suspend fun updateSimConfig(simConfig: SimConfig)
     suspend fun deleteSimConfig(simConfig: SimConfig)

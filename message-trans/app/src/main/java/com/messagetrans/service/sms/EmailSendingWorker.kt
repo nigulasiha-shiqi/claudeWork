@@ -8,6 +8,7 @@ import com.google.gson.Gson
 import com.messagetrans.MessageTransApplication
 import com.messagetrans.data.repository.EmailRepositoryImpl
 import com.messagetrans.service.email.EmailService
+import com.messagetrans.utils.RuntimeLogger
 import com.messagetrans.utils.SmsUtils
 
 class EmailSendingWorker(
@@ -36,9 +37,12 @@ class EmailSendingWorker(
             val enabledEmailConfigs = emailRepository.getEnabledEmailConfigs()
             
             if (enabledEmailConfigs.isEmpty()) {
+                RuntimeLogger.logWarn(TAG, "没有启用的邮箱配置，跳过邮件发送", "短信: $phoneNumber -> $content")
                 Log.w(TAG, "No enabled email configs found")
                 return Result.success()
             }
+            
+            RuntimeLogger.logSmsProcessing(phoneNumber, enabledEmailConfigs.size)
             
             // 格式化邮件内容
             val (subject, emailContent) = EmailService.formatSmsEmailContent(
@@ -62,7 +66,6 @@ class EmailSendingWorker(
             }
             
             // 更新短信日志的邮件发送状态
-            val emailsSentJson = Gson().toJson(successfulEmails)
             SmsUtils.updateSmsLogEmailStatus(
                 applicationContext,
                 smsLogId,

@@ -14,6 +14,9 @@ class SimRepositoryImpl(private val simConfigDao: SimConfigDao) : SimRepository 
     override suspend fun getSimConfigBySlot(slotIndex: Int): SimConfig? =
         simConfigDao.getSimConfigBySlot(slotIndex)
 
+    override suspend fun getSimConfigCount(): Int =
+        simConfigDao.getSimConfigCount()
+
     override suspend fun insertSimConfig(simConfig: SimConfig) =
         simConfigDao.insertSimConfig(simConfig)
 

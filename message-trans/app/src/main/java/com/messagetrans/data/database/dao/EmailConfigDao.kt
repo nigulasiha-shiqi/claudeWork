@@ -15,6 +15,9 @@ interface EmailConfigDao {
     @Query("SELECT * FROM email_configs WHERE id = :id")
     suspend fun getEmailConfigById(id: String): EmailConfig?
 
+    @Query("SELECT COUNT(*) FROM email_configs")
+    suspend fun getEmailConfigCount(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEmailConfig(emailConfig: EmailConfig)
 
