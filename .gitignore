@@ -36,3 +36,4 @@ coverage/
 
 # OS generated files
 Thumbs.db
+.history
