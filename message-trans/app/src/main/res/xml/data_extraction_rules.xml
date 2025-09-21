@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- 排除敏感数据不上传云备份 -->
+        <exclude domain="database" path="message_trans_database" />
+        <exclude domain="sharedpref" path="email_configs.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <!-- 设备传输时排除敏感数据 -->
+        <exclude domain="database" path="message_trans_database" />
+        <exclude domain="sharedpref" path="email_configs.xml" />
+    </device-transfer>
+</data-extraction-rules>

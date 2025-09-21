@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- 排除敏感数据不备份 -->
+    <exclude domain="database" path="message_trans_database" />
+    <exclude domain="sharedpref" path="email_configs.xml" />
+</full-backup-content>
