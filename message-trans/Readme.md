@@ -8,13 +8,16 @@
 1. **短信拦截转发** - 拦截指定SIM卡的短信并自动转发到配置的邮箱
 2. **后台长时间运行** - 前台服务确保应用持续在后台工作
 3. **完整日志记录** - 记录所有短信转发操作和状态
-4. **运行时日志系统** - 实时记录应用运行状态，便于故障排查
+4. **运行时日志系统** - 实时记录应用运行状态，支持分级筛选便于故障排查
 5. **邮件配置缓存** - 邮件配置持久化存储，重装应用后自动恢复
 6. **多SIM卡支持** - 用户可选择拦截哪张SIM卡的短信
 7. **双卡兼容** - 支持eSIM和物理SIM卡
 8. **多邮箱配置** - 支持配置多个邮箱地址，可同时向多个邮箱发送
 9. **权限管理** - 智能权限引导，支持电池优化和自启动设置
 10. **配置导入导出** - 支持邮件配置的导出和导入，方便备份和迁移
+11. **代理服务器支持** - 支持HTTP/SOCKS代理，解决网络限制问题 *(UI暂时隐藏)*
+12. **短信编辑功能** - 支持编辑短信内容，修正错误后重新转发
+13. **智能重发机制** - 支持失败短信的重新发送，自动重置转发状态
 
 ### 技术栈
 - **平台**: 原生Android开发
@@ -77,7 +80,8 @@ com.google.code.gson:gson:2.10.1
     └── BootReceiver (开机自启)
 ```
 
-### 数据库设计
+### 数据库设计 (当前版本: v3)
+**数据库升级历史**: v1.0(版本1) → v1.1(版本2) → v1.2(版本3-代理支持)
 ```kotlin
 // 短信记录表
 @Entity(tableName = "sms_logs")
@@ -93,7 +97,7 @@ data class SmsLog(
     val errorMessage: String?   // 错误信息
 )
 
-// 邮箱配置表
+// 邮箱配置表 (v1.2增强 - 支持代理配置)
 @Entity(tableName = "email_configs")
 data class EmailConfig(
     @PrimaryKey val id: String,
@@ -104,7 +108,13 @@ data class EmailConfig(
     val username: String,       // 用户名
     val password: String,       // 密码(加密存储)
     val isEnabled: Boolean,     // 是否启用
-    val useSSL: Boolean        // 是否使用SSL
+    val useSSL: Boolean,        // 是否使用SSL
+    val useProxy: Boolean = false,      // 是否使用代理
+    val proxyType: String = "HTTP",     // 代理类型: HTTP, SOCKS
+    val proxyHost: String = "",         // 代理服务器地址
+    val proxyPort: Int = 8080,          // 代理端口
+    val proxyUsername: String = "",     // 代理用户名
+    val proxyPassword: String = ""      // 代理密码
 )
 
 // SIM卡配置表
@@ -212,6 +222,8 @@ message-trans/
 │   │   │   │   ├── fragment_logs.xml
 │   │   │   │   ├── fragment_sms_logs.xml
 │   │   │   │   ├── fragment_runtime_logs.xml
+│   │   │   │   ├── dialog_email_config.xml    # 邮箱配置对话框(含代理设置)
+│   │   │   │   ├── dialog_sms_edit.xml        # 短信编辑对话框(v1.2新增)
 │   │   │   │   ├── item_email_config.xml
 │   │   │   │   ├── item_sim_config.xml
 │   │   │   │   ├── item_sms_log.xml
@@ -345,18 +357,30 @@ git clone <repository-url>
 
 ### 最新功能更新
 
-#### v1.1 (2025年1月) - 增强版
+#### v1.2 (2025年9月) - 增强版 
+- ✅ **代理服务器支持**: 支持HTTP/SOCKS代理，解决网络限制问题 *(UI暂时隐藏)*
+- ✅ **短信编辑功能**: 支持编辑短信内容，修正错误内容后重新转发
+- ✅ **运行日志筛选**: 支持按日志级别(INFO/WARN/ERROR)筛选运行日志
+- ✅ **代理连接测试**: 提供代理连接测试功能，验证代理配置有效性 *(UI暂时隐藏)*
+- ✅ **短信重发功能**: 支持重新发送失败的短信，自动重置转发状态
+- ✅ **数据库升级**: 升级到版本3，支持代理配置字段
+
+#### v1.1 (2025年1月) - 基础增强版
 - ✅ **运行时日志系统**: 实时记录应用运行状态，分级日志便于故障排查
 - ✅ **邮件配置缓存**: AES加密的持久化存储，重装应用后自动恢复配置
 - ✅ **分页日志界面**: 将日志页面分为"短信日志"和"运行日志"两个标签
 - ✅ **配置导入导出**: 支持邮件配置的备份和恢复，使用Base64编码
 - ✅ **增强的错误处理**: 完善的异常捕获和日志记录机制
 
-#### 核心改进类
-- **RuntimeLogger.kt**: 统一的运行时日志管理工具
-- **EmailConfigCache.kt**: 邮件配置的加密缓存系统  
-- **LogsFragment.kt**: 重构为TabLayout的多标签页面
-- **SettingsViewModel.kt**: 集成缓存同步和导入导出功能
+#### 核心改进类（v1.2更新）
+- **EmailConfig.kt**: 增加代理配置字段(useProxy, proxyType, proxyHost等)
+- **EmailConfigDialog.kt**: 支持代理配置界面和验证 *(UI暂时隐藏)*
+- **SettingsFragment.kt**: 集成代理设置和测试功能 *(UI暂时隐藏)*
+- **LogsViewModel.kt**: 增加日志筛选、短信编辑和重发功能
+- **SmsRepositoryImpl.kt**: 新增updateSmsLog方法支持编辑
+- **dialog_sms_edit.xml**: 新增短信编辑对话框布局
+
+**UI状态说明**: 代理相关的UI界面已暂时设置为隐藏状态(`android:visibility="gone"`)，但所有后端功能代码完整保留，可随时通过修改布局文件重新启用。
 
 ### 后续优化方向
 1. 增加邮件模板自定义功能
@@ -369,12 +393,22 @@ git clone <repository-url>
 
 ---
 
-**开发完成时间**: 2025年1月
+**开发完成时间**: 2025年9月
 **开发者**: Claude Code Assistant  
-**当前版本**: v1.1 (增强版)
+**当前版本**: v1.2 (代理增强版)
 **许可证**: MIT License
 
 ## 版本历史
+
+### v1.2 (2025年9月) - 代理增强版
+- 新增代理服务器支持（HTTP/SOCKS），解决网络环境限制
+- 新增短信内容编辑功能，支持修正错误内容后重新转发
+- 新增运行日志筛选器，支持按级别筛选日志(INFO/WARN/ERROR)
+- 新增代理连接测试功能，验证代理配置有效性
+- 新增短信重发功能，支持失败短信的重新发送
+- 升级数据库到版本3，支持代理配置字段
+- 优化日志管理系统，增强用户交互体验
+- **注意**: 代理相关UI功能暂时隐藏，后端支持完整保留
 
 ### v1.1 (2025年1月) - 增强版
 - 新增运行时日志系统，实时监控应用状态

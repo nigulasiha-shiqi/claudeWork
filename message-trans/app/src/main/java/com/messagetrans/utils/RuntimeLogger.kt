@@ -90,8 +90,8 @@ object RuntimeLogger {
         logInfo("EmailService", "邮件发送成功到 $emailAddress", "短信内容: $smsInfo")
     }
     
-    fun logEmailFailure(emailAddress: String, error: String, throwable: Throwable? = null) {
-        logError("EmailService", "邮件发送失败到 $emailAddress: $error", throwable)
+    fun logEmailFailure(emailAddress: String, smsInfo: String, error: String, throwable: Throwable? = null) {
+        logError("EmailService", "邮件发送失败到 $emailAddress: $error", throwable, "短信内容: $smsInfo")
     }
     
     // SMS接收相关日志

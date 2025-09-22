@@ -7,6 +7,7 @@ import android.provider.Telephony
 import android.telephony.SmsMessage
 import android.telephony.SubscriptionManager
 import android.util.Log
+import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
@@ -92,10 +93,16 @@ class SmsInterceptorReceiver : BroadcastReceiver() {
         
         val emailWorkRequest = OneTimeWorkRequestBuilder<EmailSendingWorker>()
             .setInputData(workData)
+            .addTag("email_sending_${smsLog.id}") // 添加唯一标签防止重复
             .build()
         
-        WorkManager.getInstance(context).enqueue(emailWorkRequest)
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "email_sending_${smsLog.id}", // 使用SMS ID作为唯一工作名
+            ExistingWorkPolicy.KEEP, // 如果已存在则保持现有工作
+            emailWorkRequest
+        )
         
         Log.d(TAG, "Email sending work enqueued for SMS: ${smsLog.id}")
+        RuntimeLogger.logInfo(TAG, "邮件发送任务已入队", "短信ID: ${smsLog.id}")
     }
 }

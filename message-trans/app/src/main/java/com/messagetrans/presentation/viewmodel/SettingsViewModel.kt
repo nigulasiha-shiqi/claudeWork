@@ -3,6 +3,7 @@ package com.messagetrans.presentation.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.messagetrans.MessageTransApplication
@@ -10,11 +11,14 @@ import com.messagetrans.data.database.entities.EmailConfig
 import com.messagetrans.data.database.entities.SimConfig
 import com.messagetrans.data.repository.EmailRepositoryImpl
 import com.messagetrans.data.repository.SimRepositoryImpl
+import com.messagetrans.service.email.EmailService
 import com.messagetrans.utils.EmailConfigCache
 import com.messagetrans.utils.RuntimeLogger
 import com.messagetrans.utils.SimCardManager
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.util.Log
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -34,9 +38,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val emailConfigs: LiveData<List<EmailConfig>> = emailRepository.getAllEmailConfigs().asLiveData()
     val simConfigs: LiveData<List<SimConfig>> = simRepository.getAllSimConfigs().asLiveData()
     
+    // 当前正在编辑的邮件配置（用于代理设置）
+    private val _currentEmailConfig = MutableLiveData<EmailConfig?>()
+    val currentEmailConfig: LiveData<EmailConfig?> = _currentEmailConfig
+    
+    private val emailService = EmailService
+    
     init {
         initializeSimConfigs()
         initializeEmailConfigs()
+        loadCurrentEmailConfig()
     }
     
     fun addEmailConfig(emailConfig: EmailConfig) {
@@ -44,6 +55,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             try {
                 emailRepository.insertEmailConfig(emailConfig)
                 syncEmailConfigsToCache()
+                // 如果是第一个配置，设置为当前配置
+                if (_currentEmailConfig.value == null) {
+                    _currentEmailConfig.value = emailConfig
+                }
             } catch (e: Exception) {
                 // 处理错误
             }
@@ -55,6 +70,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             try {
                 emailRepository.updateEmailConfig(emailConfig)
                 syncEmailConfigsToCache()
+                // 如果更新的是当前配置，更新当前配置
+                if (_currentEmailConfig.value?.id == emailConfig.id) {
+                    _currentEmailConfig.value = emailConfig
+                }
             } catch (e: Exception) {
                 // 处理错误
             }
@@ -233,5 +252,181 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
         }
         return EmailConfigCache.importConfigsFromString(importString)
+    }
+    
+    /**
+     * 加载当前的邮件配置（用于代理设置）
+     */
+    private fun loadCurrentEmailConfig() {
+        viewModelScope.launch {
+            try {
+                val configs = emailRepository.getAllEmailConfigs().first()
+                // 获取第一个启用的配置，如果没有则获取第一个配置
+                val config = configs.firstOrNull { it.isEnabled } ?: configs.firstOrNull()
+                _currentEmailConfig.value = config
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading current email config", e)
+            }
+        }
+    }
+    
+    /**
+     * 更新代理启用状态
+     */
+    fun updateProxyEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                _currentEmailConfig.value?.let { config ->
+                    val updatedConfig = config.copy(useProxy = enabled)
+                    emailRepository.updateEmailConfig(updatedConfig)
+                    _currentEmailConfig.value = updatedConfig
+                    syncEmailConfigsToCache()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating proxy enabled", e)
+            }
+        }
+    }
+    
+    /**
+     * 更新代理类型
+     */
+    fun updateProxyType(proxyType: String) {
+        viewModelScope.launch {
+            try {
+                _currentEmailConfig.value?.let { config ->
+                    val updatedConfig = config.copy(proxyType = proxyType)
+                    emailRepository.updateEmailConfig(updatedConfig)
+                    _currentEmailConfig.value = updatedConfig
+                    syncEmailConfigsToCache()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating proxy type", e)
+            }
+        }
+    }
+    
+    /**
+     * 更新代理主机
+     */
+    fun updateProxyHost(host: String) {
+        viewModelScope.launch {
+            try {
+                _currentEmailConfig.value?.let { config ->
+                    val updatedConfig = config.copy(proxyHost = host)
+                    emailRepository.updateEmailConfig(updatedConfig)
+                    _currentEmailConfig.value = updatedConfig
+                    syncEmailConfigsToCache()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating proxy host", e)
+            }
+        }
+    }
+    
+    /**
+     * 更新代理端口
+     */
+    fun updateProxyPort(port: Int) {
+        viewModelScope.launch {
+            try {
+                _currentEmailConfig.value?.let { config ->
+                    val updatedConfig = config.copy(proxyPort = port)
+                    emailRepository.updateEmailConfig(updatedConfig)
+                    _currentEmailConfig.value = updatedConfig
+                    syncEmailConfigsToCache()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating proxy port", e)
+            }
+        }
+    }
+    
+    /**
+     * 更新代理用户名
+     */
+    fun updateProxyUsername(username: String) {
+        viewModelScope.launch {
+            try {
+                _currentEmailConfig.value?.let { config ->
+                    val updatedConfig = config.copy(proxyUsername = username)
+                    emailRepository.updateEmailConfig(updatedConfig)
+                    _currentEmailConfig.value = updatedConfig
+                    syncEmailConfigsToCache()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating proxy username", e)
+            }
+        }
+    }
+    
+    /**
+     * 更新代理密码
+     */
+    fun updateProxyPassword(password: String) {
+        viewModelScope.launch {
+            try {
+                _currentEmailConfig.value?.let { config ->
+                    val updatedConfig = config.copy(proxyPassword = password)
+                    emailRepository.updateEmailConfig(updatedConfig)
+                    _currentEmailConfig.value = updatedConfig
+                    syncEmailConfigsToCache()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating proxy password", e)
+            }
+        }
+    }
+    
+    /**
+     * 保存代理配置
+     */
+    fun saveProxyConfig(enabled: Boolean, proxyType: String, host: String, port: Int, username: String, password: String) {
+        viewModelScope.launch {
+            try {
+                _currentEmailConfig.value?.let { config ->
+                    val updatedConfig = config.copy(
+                        useProxy = enabled,
+                        proxyType = proxyType,
+                        proxyHost = host,
+                        proxyPort = port,
+                        proxyUsername = username,
+                        proxyPassword = password
+                    )
+                    emailRepository.updateEmailConfig(updatedConfig)
+                    _currentEmailConfig.value = updatedConfig
+                    syncEmailConfigsToCache()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving proxy config", e)
+            }
+        }
+    }
+    
+    /**
+     * 测试代理连接
+     */
+    suspend fun testProxyConnection(): Pair<Boolean, String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                _currentEmailConfig.value?.let { config ->
+                    if (!config.useProxy || config.proxyHost.isEmpty()) {
+                        return@withContext Pair(false, "代理未启用或代理服务器地址为空")
+                    }
+                    
+                    val result = emailService.testProxyConnection(config)
+                    if (result.success) {
+                        RuntimeLogger.logInfo(TAG, "代理连接测试成功", "代理类型: ${config.proxyType}, 地址: ${config.proxyHost}:${config.proxyPort}")
+                        Pair(true, "代理连接测试成功！\n\n代理类型: ${config.proxyType}\n地址: ${config.proxyHost}:${config.proxyPort}")
+                    } else {
+                        RuntimeLogger.logWarn(TAG, "代理连接测试失败", "代理类型: ${config.proxyType}, 地址: ${config.proxyHost}:${config.proxyPort}")
+                        Pair(false, result.errorMessage ?: "代理连接测试失败，请检查代理配置")
+                    }
+                } ?: Pair(false, "没有找到邮件配置")
+            } catch (e: Exception) {
+                RuntimeLogger.logError(TAG, "代理连接测试异常", e)
+                Pair(false, "代理连接测试异常: ${e.message}")
+            }
+        }
     }
 }

@@ -18,6 +18,9 @@ interface SmsLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSmsLog(smsLog: SmsLog)
 
+    @Update
+    suspend fun updateSmsLog(smsLog: SmsLog)
+
     @Delete
     suspend fun deleteSmsLog(smsLog: SmsLog)
 

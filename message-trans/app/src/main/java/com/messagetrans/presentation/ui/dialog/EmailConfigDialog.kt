@@ -4,6 +4,7 @@ import android.app.Dialog
 import android.content.DialogInterface
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
@@ -34,6 +35,11 @@ class EmailConfigDialog(
     }
 
     private fun setupViews() {
+        // 设置代理开关监听器
+        binding.switchProxyEnabled.setOnCheckedChangeListener { _, isChecked ->
+            binding.layoutProxyConfig.visibility = if (isChecked) View.VISIBLE else View.GONE
+        }
+        
         emailConfig?.let { config ->
             binding.apply {
                 editDisplayName.setText(config.displayName)
@@ -44,6 +50,15 @@ class EmailConfigDialog(
                 editPassword.setText(config.password)
                 switchSslEnabled.isChecked = config.useSSL
                 switchEnabled.isChecked = config.isEnabled
+                
+                // 代理配置
+                switchProxyEnabled.isChecked = config.useProxy
+                layoutProxyConfig.visibility = if (config.useProxy) View.VISIBLE else View.GONE
+                editProxyType.setText(config.proxyType)
+                editProxyHost.setText(config.proxyHost)
+                editProxyPort.setText(config.proxyPort.toString())
+                editProxyUsername.setText(config.proxyUsername)
+                editProxyPassword.setText(config.proxyPassword)
             }
         }
     }
@@ -70,6 +85,27 @@ class EmailConfigDialog(
                 return
             }
 
+            // 获取代理配置
+            val useProxy = binding.switchProxyEnabled.isChecked
+            val proxyType = binding.editProxyType.text.toString()
+            val proxyHost = binding.editProxyHost.text.toString().trim()
+            val proxyPortText = binding.editProxyPort.text.toString().trim()
+            val proxyPort = proxyPortText.toIntOrNull() ?: 8080
+            val proxyUsername = binding.editProxyUsername.text.toString().trim()
+            val proxyPassword = binding.editProxyPassword.text.toString()
+            
+            // 验证代理配置
+            if (useProxy) {
+                if (proxyHost.isEmpty()) {
+                    Toast.makeText(context, "代理服务器地址不能为空", Toast.LENGTH_SHORT).show()
+                    return
+                }
+                if (proxyPort !in 1..65535) {
+                    Toast.makeText(context, "请输入有效的代理端口号 (1-65535)", Toast.LENGTH_SHORT).show()
+                    return
+                }
+            }
+
             val config = EmailConfig(
                 id = emailConfig?.id ?: java.util.UUID.randomUUID().toString(),
                 displayName = displayName,
@@ -79,7 +115,13 @@ class EmailConfigDialog(
                 username = username,
                 password = password,
                 useSSL = binding.switchSslEnabled.isChecked,
-                isEnabled = binding.switchEnabled.isChecked
+                isEnabled = binding.switchEnabled.isChecked,
+                useProxy = useProxy,
+                proxyType = proxyType,
+                proxyHost = proxyHost,
+                proxyPort = proxyPort,
+                proxyUsername = proxyUsername,
+                proxyPassword = proxyPassword
             )
 
             onSave(config)

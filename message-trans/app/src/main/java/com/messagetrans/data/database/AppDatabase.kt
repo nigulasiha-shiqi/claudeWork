@@ -15,7 +15,7 @@ import com.messagetrans.data.database.entities.SmsLog
 
 @Database(
     entities = [SmsLog::class, EmailConfig::class, SimConfig::class, RuntimeLog::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

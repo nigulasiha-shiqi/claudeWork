@@ -8,6 +8,7 @@ interface SmsRepository {
     suspend fun getSmsLogsByDateRange(startTime: Long, endTime: Long): List<SmsLog>
     suspend fun getSmsLogsByPhoneNumber(phoneNumber: String): List<SmsLog>
     suspend fun insertSmsLog(smsLog: SmsLog)
+    suspend fun updateSmsLog(smsLog: SmsLog)
     suspend fun deleteSmsLog(smsLog: SmsLog)
     suspend fun deleteOldLogs(timestamp: Long)
     suspend fun getLogCount(): Int

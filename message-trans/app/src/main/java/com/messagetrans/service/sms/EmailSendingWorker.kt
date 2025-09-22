@@ -30,6 +30,7 @@ class EmailSendingWorker(
             val simType = inputData.getString("sim_type") ?: "unknown"
             
             Log.d(TAG, "Processing email sending for SMS: $smsLogId")
+            RuntimeLogger.logInfo(TAG, "开始处理短信邮件转发", "短信ID: $smsLogId, 发送方: $phoneNumber")
             
             // 获取启用的邮箱配置
             val database = MessageTransApplication.getInstance().database
@@ -42,6 +43,7 @@ class EmailSendingWorker(
                 return Result.success()
             }
             
+            RuntimeLogger.logInfo(TAG, "找到邮箱配置", "启用邮箱数量: ${enabledEmailConfigs.size}")
             RuntimeLogger.logSmsProcessing(phoneNumber, enabledEmailConfigs.size)
             
             // 格式化邮件内容
@@ -54,13 +56,16 @@ class EmailSendingWorker(
             
             // 向所有启用的邮箱发送
             for (emailConfig in enabledEmailConfigs) {
+                RuntimeLogger.logInfo(TAG, "发送邮件中", "目标邮箱: ${emailConfig.emailAddress}")
                 val result = EmailService.sendEmail(emailConfig, subject, emailContent)
                 
                 if (result.success) {
                     successfulEmails.add(emailConfig.emailAddress)
+                    RuntimeLogger.logEmailSuccess(emailConfig.emailAddress, phoneNumber)
                     Log.d(TAG, "Email sent successfully to ${emailConfig.emailAddress}")
                 } else {
                     lastError = result.errorMessage
+                    RuntimeLogger.logEmailFailure(emailConfig.emailAddress, phoneNumber, result.errorMessage ?: "未知错误")
                     Log.e(TAG, "Failed to send email to ${emailConfig.emailAddress}: ${result.errorMessage}")
                 }
             }
@@ -74,14 +79,17 @@ class EmailSendingWorker(
             )
             
             if (successfulEmails.isNotEmpty()) {
+                RuntimeLogger.logInfo(TAG, "邮件转发完成", "成功发送到 ${successfulEmails.size} 个邮箱: ${successfulEmails.joinToString()}")
                 Log.d(TAG, "Email sending completed successfully for SMS: $smsLogId")
                 Result.success()
             } else {
+                RuntimeLogger.logError(TAG, "邮件转发失败", Exception("所有邮箱发送失败: $lastError"))
                 Log.e(TAG, "Failed to send email to any configured address for SMS: $smsLogId")
                 Result.retry()
             }
             
         } catch (e: Exception) {
+            RuntimeLogger.logError(TAG, "邮件发送工作器异常", e)
             Log.e(TAG, "Error in EmailSendingWorker", e)
             Result.retry()
         }

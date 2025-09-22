@@ -16,6 +16,8 @@ class SmsRepositoryImpl(private val smsLogDao: SmsLogDao) : SmsRepository {
 
     override suspend fun insertSmsLog(smsLog: SmsLog) = smsLogDao.insertSmsLog(smsLog)
 
+    override suspend fun updateSmsLog(smsLog: SmsLog) = smsLogDao.updateSmsLog(smsLog)
+
     override suspend fun deleteSmsLog(smsLog: SmsLog) = smsLogDao.deleteSmsLog(smsLog)
 
     override suspend fun deleteOldLogs(timestamp: Long) = smsLogDao.deleteOldLogs(timestamp)

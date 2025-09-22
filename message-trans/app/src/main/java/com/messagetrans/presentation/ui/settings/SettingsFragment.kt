@@ -12,12 +12,14 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.messagetrans.databinding.FragmentSettingsBinding
 import com.messagetrans.presentation.ui.settings.adapter.EmailConfigAdapter
 import com.messagetrans.presentation.ui.settings.adapter.SimConfigAdapter
 import com.messagetrans.presentation.ui.dialog.EmailConfigDialog
 import com.messagetrans.presentation.viewmodel.SettingsViewModel
+import kotlinx.coroutines.launch
 
 class SettingsFragment : Fragment() {
     private var _binding: FragmentSettingsBinding? = null
@@ -44,6 +46,7 @@ class SettingsFragment : Fragment() {
         setupRecyclerViews()
         setupObservers()
         setupClickListeners()
+        setupProxySettings()
     }
 
     private fun setupRecyclerViews() {
@@ -101,6 +104,10 @@ class SettingsFragment : Fragment() {
         
         binding.buttonImportConfig.setOnClickListener {
             importEmailConfigs()
+        }
+        
+        binding.buttonTestProxy.setOnClickListener {
+            testProxyConnection()
         }
     }
 
@@ -194,6 +201,127 @@ class SettingsFragment : Fragment() {
             }
             .setNegativeButton("关闭", null)
             .show()
+    }
+
+    private fun setupProxySettings() {
+        // 监听代理开关状态
+        binding.switchProxyEnabled.setOnCheckedChangeListener { _, isChecked ->
+            binding.layoutProxyConfig.visibility = if (isChecked) View.VISIBLE else View.GONE
+            viewModel.updateProxyEnabled(isChecked)
+        }
+        
+        // 监听代理配置变化
+        setupProxyConfigListeners()
+    }
+    
+    private fun setupProxyConfigListeners() {
+        binding.editProxyType.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                val proxyType = binding.editProxyType.text.toString().trim()
+                viewModel.updateProxyType(proxyType)
+            }
+        }
+        
+        binding.editProxyHost.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                val host = binding.editProxyHost.text.toString().trim()
+                viewModel.updateProxyHost(host)
+            }
+        }
+        
+        binding.editProxyPort.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                val portText = binding.editProxyPort.text.toString().trim()
+                val port = portText.toIntOrNull() ?: 8080
+                viewModel.updateProxyPort(port)
+            }
+        }
+        
+        binding.editProxyUsername.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                val username = binding.editProxyUsername.text.toString().trim()
+                viewModel.updateProxyUsername(username)
+            }
+        }
+        
+        binding.editProxyPassword.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                val password = binding.editProxyPassword.text.toString()
+                viewModel.updateProxyPassword(password)
+            }
+        }
+    }
+    
+    private fun testProxyConnection() {
+        // 先保存当前的代理配置
+        saveCurrentProxyConfig()
+        
+        val progressDialog = AlertDialog.Builder(requireContext())
+            .setTitle("测试代理连接")
+            .setMessage("正在测试代理连接，请稍候...")
+            .setCancelable(false)
+            .create()
+        
+        progressDialog.show()
+        
+        lifecycleScope.launch {
+            try {
+                val result = viewModel.testProxyConnection()
+                progressDialog.dismiss()
+                
+                val (isSuccess, message) = result
+                
+                AlertDialog.Builder(requireContext())
+                    .setTitle(if (isSuccess) "测试成功" else "测试失败")
+                    .setMessage(message)
+                    .setPositiveButton("确定", null)
+                    .show()
+                    
+            } catch (e: Exception) {
+                progressDialog.dismiss()
+                AlertDialog.Builder(requireContext())
+                    .setTitle("测试失败")
+                    .setMessage("代理测试发生异常: ${e.message}")
+                    .setPositiveButton("确定", null)
+                    .show()
+            }
+        }
+    }
+    
+    private fun saveCurrentProxyConfig() {
+        val isEnabled = binding.switchProxyEnabled.isChecked
+        val proxyType = binding.editProxyType.text.toString()
+        val host = binding.editProxyHost.text.toString().trim()
+        val portText = binding.editProxyPort.text.toString().trim()
+        val port = portText.toIntOrNull() ?: 8080
+        val username = binding.editProxyUsername.text.toString().trim()
+        val password = binding.editProxyPassword.text.toString()
+        
+        viewModel.saveProxyConfig(isEnabled, proxyType, host, port, username, password)
+    }
+    
+    private fun loadProxyConfig() {
+        viewModel.currentEmailConfig.observe(viewLifecycleOwner) { emailConfig ->
+            emailConfig?.let { config ->
+                binding.switchProxyEnabled.isChecked = config.useProxy
+                binding.layoutProxyConfig.visibility = if (config.useProxy) View.VISIBLE else View.GONE
+                binding.editProxyType.setText(config.proxyType)
+                binding.editProxyHost.setText(config.proxyHost)
+                binding.editProxyPort.setText(config.proxyPort.toString())
+                binding.editProxyUsername.setText(config.proxyUsername)
+                binding.editProxyPassword.setText(config.proxyPassword)
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        loadProxyConfig()
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        saveCurrentProxyConfig()
     }
 
     override fun onDestroyView() {
